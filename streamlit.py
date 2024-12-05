@@ -44,13 +44,20 @@ def courses(user_id, accessToken):
 
     global courses_name_list
     global courses_id_list
+    courses_name_list = []
+    courses_id_list = []
     for i in range(len(response.json()['courses'])):
         if(response.json()['courses'][i]['teacher_name'] != "Zuvio \u5b98\u65b9\u6d3b\u52d5"):
             courses_name_list.append(response.json()['courses'][i]['course_name'])
             courses_id_list.append(response.json()['courses'][i]['course_id'])
+            st.session_state.courses_name_list = courses_name_list
+            st.session_state.courses_id_list = courses_id_list
         #print(a['courses'][i]['course_id'])
     print(courses_name_list)
     print(courses_id_list)
+    print(st.session_state.courses_name_list)
+    print(st.session_state.courses_id_list)
+    
 
 
 
@@ -67,8 +74,8 @@ def rollcall(lesson_id, lat, lng):
 
         rollcall_url = "https://irs.zuvio.com.tw/app_v2/makeRollcall"
         data = {
-            'user_id': user_id,
-            'accessToken': accessToken,
+            'user_id': st.session_state.user_id,
+            'accessToken': st.session_state.accessToken,
             'rollcall_id': rollcall_id,
             'device': "WEB",
             'lat': lat,
@@ -125,17 +132,36 @@ def logout():
     st.write("___")
 
 def rollcall_section():
-    progress_text = "正在取得課程清單"
-    my_bar = st.progress(0, text=progress_text)
+    if 'courses_name_list' not in st.session_state:
+        progress_text = "正在取得課程清單"
+        my_bar = st.progress(0, text=progress_text)
 
-    for percent_complete in range(100):
-        time.sleep(0.01)
-        my_bar.progress(percent_complete + 1, text=progress_text)
-    time.sleep(1)
-    my_bar.empty()
+        courses(st.session_state.user_id, st.session_state.accessToken)
+
+        for percent_complete in range(100):
+            time.sleep(0.01)
+            my_bar.progress(percent_complete + 1, text=progress_text)
+        time.sleep(1)
+        my_bar.empty()
+        time.sleep(1)
+        st.rerun()
+    else:
+        option = st.selectbox("選擇要簽到的課程", st.session_state.courses_name_list)
+        place = st.selectbox("選擇地點", ["北科三教", "北科二教", "自訂"])
+        if place == "自訂":
+            col1, col2= st.columns(2)
+
+            with col1:
+                lat = st.text_input("請輸入經度")
+
+            with col2:
+                lng = st.text_input("請輸入緯度")
+        if st.button("簽到"):
+            lesson_id_list = st.session_state.courses_name_list
+            print(st.session_state.courses_id_list[lesson_id_list.index(option)])
+            rollcall(st.session_state.courses_id_list[lesson_id_list.index(option)], "35.68698308315934", "139.75260513820413")
 
 def main():
-
 
     st.write("### 🕊️Zuvio簽到系統")
     if 'user_id' not in st.session_state:
