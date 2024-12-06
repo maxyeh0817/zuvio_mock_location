@@ -71,9 +71,6 @@ def rollcall(lesson_id, lat, lng):
     getrollid = session.get(url)
     print(getrollid.status_code)
     try:
-        f = open("test.html", "w")
-        f.write(getrollid.text)
-        f.close()
         rollcall_id = re.search(r"\d{7}", re.search(r"makeRollcall\(\d{7}\)", getrollid.text).group()).group()
         print(rollcall_id)
 
