@@ -5,8 +5,6 @@ import time
  
 session = requests.Session() # 設定 Session
 
-#st.session_state.user_id
-#st.session_state.accessToken
 user_id = ""
 accessToken = ""
 courses_name_list = []
@@ -14,6 +12,9 @@ courses_id_list = []
 
 def login(email, password):
     
+    st.session_state.email = email
+    st.session_state.password= password
+
     login = "https://irs.zuvio.com.tw/irs/submitLogin"
     data = {
         'email': email,
@@ -30,8 +31,8 @@ def getidentity():
         response = session.get(article)
         global user_id
         global accessToken
-        user_id = re.search("\d{7}", re.search("var user_id = \d{7}", response.text).group()).group()
-        accessToken = re.search("\w{40}", re.search('var accessToken = "\w{40}";', response.text).group()).group()
+        user_id = re.search(r"\d{7}", re.search(r"var user_id = \d{7}", response.text).group()).group()
+        accessToken = re.search(r"\w{40}", re.search(r'var accessToken = "\w{40}";', response.text).group()).group()
         st.session_state.user_id = user_id
         st.session_state.accessToken = accessToken
         return True
@@ -52,7 +53,6 @@ def courses(user_id, accessToken):
             courses_id_list.append(response.json()['courses'][i]['course_id'])
             st.session_state.courses_name_list = courses_name_list
             st.session_state.courses_id_list = courses_id_list
-        #print(a['courses'][i]['course_id'])
     print(courses_name_list)
     print(courses_id_list)
     print(st.session_state.courses_name_list)
@@ -62,14 +62,19 @@ def courses(user_id, accessToken):
 
 
 def rollcall(lesson_id, lat, lng):
-    getrollid = session.get("https://irs.zuvio.com.tw/student5/irs/rollcall/"+str(lesson_id))
-    #makerollcall_id = re.search("makeRollcall\(\d\d\d\d\d\d\d\)", getrollid.text).group()
-    #user_id = re.search("\d{7}", re.search("var user_id = \d{7}", getrollid.text).group()).group()
-    #accessToken = re.search("\w{40}", re.search('var accessToken = "\w{40}";', getrollid.text).group()).group()
-    print(user_id)
-    print(accessToken)
+
+
+    login(st.session_state.email,st.session_state.password)
+    getidentity()
+
+    url = f"https://irs.zuvio.com.tw/student5/irs/rollcall/{lesson_id}"
+    getrollid = session.get(url)
+    print(getrollid.status_code)
     try:
-        rollcall_id = re.search("\d{7}", re.search("makeRollcall\(\d{7}\)", getrollid.text).group()).group()
+        f = open("test.html", "w")
+        f.write(getrollid.text)
+        f.close()
+        rollcall_id = re.search(r"\d{7}", re.search(r"makeRollcall\(\d{7}\)", getrollid.text).group()).group()
         print(rollcall_id)
 
         rollcall_url = "https://irs.zuvio.com.tw/app_v2/makeRollcall"
@@ -85,12 +90,11 @@ def rollcall(lesson_id, lat, lng):
         rollcall = session.post(rollcall_url, data=data)
         print("rollcall status:"+str(rollcall.status_code))
         return True
-    except:
+    except Exception as e:
+        print(e)
         print("not in rollcall time")
         return False
-
-
-
+    
 
 
 #ui
@@ -120,6 +124,13 @@ def logout():
         st.toast('登出成功! 正在跳轉......', icon='🎉')
         del st.session_state.user_id
         del st.session_state.accessToken
+        del st.session_state.email
+        del st.session_state.password
+        try:
+            del st.session_state.courses_name_list
+            del st.session_state.courses_id_list
+        except:
+            print("no need to refresh....")
         time.sleep(3)
         st.rerun()
     if st.button("刷新課程清單"):
@@ -152,17 +163,28 @@ def rollcall_section():
             col1, col2= st.columns(2)
 
             with col1:
-                lat = st.text_input("請輸入經度")
+                custom_lat = st.text_input("請輸入經度")
 
             with col2:
-                lng = st.text_input("請輸入緯度")
+                custom_lng = st.text_input("請輸入緯度")
         if st.button("簽到"):
             lesson_id_list = st.session_state.courses_name_list
             print(st.session_state.courses_id_list[lesson_id_list.index(option)])
-            rollcall(st.session_state.courses_id_list[lesson_id_list.index(option)], "35.68698308315934", "139.75260513820413")
+            if place == "北科三教":
+                lat = "25.042909922425178"
+                lng = "121.53470727260711"
+            elif place == "北科二教":
+                lat = "25.043467295972942"
+                lng = "121.53444746920269"
+            elif place == "自訂":
+                lat = custom_lat
+                lng = custom_lng
+            if rollcall(st.session_state.courses_id_list[lesson_id_list.index(option)], lat, lng):
+                st.toast('簽到成功!', icon='🎉')
+            else:
+                st.toast('簽到失敗!課程目前無開放簽到', icon='😞')
 
 def main():
-
     st.write("### 🕊️Zuvio簽到系統")
     if 'user_id' not in st.session_state:
         login_ui()
@@ -170,11 +192,8 @@ def main():
         logout()
         rollcall_section()
         
-
-
-
-
-main()
+if __name__ == '__main__':
+    main()
             
 
 
